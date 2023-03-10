@@ -1,0 +1,15 @@
+{
+	"name": "Go Env",
+	"dockerFile": "Dockerfile",
+	// Extension for VSCode
+	"extensions": [
+		// common
+		"WakaTime.vscode-wakatime",
+		"leodevbro.blockman",
+		"streetsidesoftware.code-spell-checker",
+		// go lang
+		"golang.go",
+		"766b.go-outliner",
+		"premparihar.gotestexplorer"
+	]
+}
