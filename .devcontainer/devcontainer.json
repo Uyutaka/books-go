@@ -1,6 +1,9 @@
 {
-	"name": "Go Env",
-	"dockerFile": "Dockerfile",
+	"name": "Go & Postgres & mailhog Env",
+	// "dockerFile": "Dockerfile",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspace",
 	// Extension for VSCode
 	"extensions": [
 		// common
