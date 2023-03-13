@@ -76,8 +76,45 @@ func (app *application) routes() http.Handler {
 			Message: "success",
 			Data:    token,
 		}
-		
+
 		app.writeJSON(w, http.StatusOK, payload)
 	})
+
+	mux.Get("/test-save-token", func(w http.ResponseWriter, r *http.Request) {
+		token, err := app.models.User.Token.GenerateToken(2, 60*time.Minute)
+
+		if err != nil {
+			app.errorLog.Println(err)
+			app.errorJSON(w, err, http.StatusForbidden)
+			return
+		}
+
+		user, err := app.models.User.GetOne(2)
+		if err != nil {
+			app.errorLog.Println(err)
+			app.errorJSON(w, err, http.StatusForbidden)
+			return
+		}
+
+		token.UserID = user.ID
+		token.CreatedAt = time.Now()
+		token.UpdatedAt = time.Now()
+
+		err = token.Insert(*token, *user)
+		if err != nil {
+			app.errorLog.Println(err)
+			app.errorJSON(w, err, http.StatusForbidden)
+			return
+		}
+		
+		payload := jsonResponse{
+			Error:   false,
+			Message: "success",
+			Data:    token,
+		}
+
+		app.writeJSON(w, http.StatusOK, payload)
+	})
+
 	return mux
 }
