@@ -106,12 +106,28 @@ func (app *application) routes() http.Handler {
 			app.errorJSON(w, err, http.StatusForbidden)
 			return
 		}
-		
+
 		payload := jsonResponse{
 			Error:   false,
 			Message: "success",
 			Data:    token,
 		}
+
+		app.writeJSON(w, http.StatusOK, payload)
+	})
+
+	mux.Get("/test-validate-token", func(w http.ResponseWriter, r *http.Request) {
+		tokenToValidate := r.URL.Query().Get("token")
+		valid, err := app.models.Token.ValidToken(tokenToValidate)
+		if err != nil {
+			app.errorLog.Println(err)
+			app.errorJSON(w, err, http.StatusForbidden)
+			return
+		}
+		
+		var payload jsonResponse
+		payload.Error = false
+		payload.Data = valid
 
 		app.writeJSON(w, http.StatusOK, payload)
 	})
