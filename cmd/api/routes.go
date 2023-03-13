@@ -36,7 +36,13 @@ func (app *application) routes() http.Handler {
 			return
 		}
 
-		app.writeJSON(w, http.StatusOK, all)
+		payload := jsonResponse{
+			Error:   false,
+			Message: "success",
+			Data:    envelop{"users": all},
+		}
+
+		app.writeJSON(w, http.StatusOK, payload)
 	})
 
 	mux.Get("/users/add", func(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +130,7 @@ func (app *application) routes() http.Handler {
 			app.errorJSON(w, err, http.StatusForbidden)
 			return
 		}
-		
+
 		var payload jsonResponse
 		payload.Error = false
 		payload.Data = valid

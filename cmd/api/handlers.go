@@ -7,8 +7,10 @@ import (
 type jsonResponse struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message"`
-	Data    any    `json:"data"`
+	Data    any    `json:"data,omitempty"`
 }
+
+type envelop map[string]any
 
 func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 	type credentials struct {
