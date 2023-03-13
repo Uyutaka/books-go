@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 )
 
 func (app *application) readJSON(w http.ResponseWriter, r *http.Request, data any) error {
@@ -54,9 +55,25 @@ func (app *application) errorJSON(w http.ResponseWriter, err error, status ...in
 		statusCode = status[0]
 	}
 
+	var customErr error
+	switch {
+	// ref https://www.postgresql.org/docs/14/errcodes-appendix.html
+	case strings.Contains(err.Error(), "SQLSTATE 23505"):
+		customErr = errors.New("duplicate value violates unique constraint")
+		statusCode = http.StatusForbidden
+	case strings.Contains(err.Error(), "SQLSTATE 22001"):
+		customErr = errors.New("the value you are trying to insert is too large")
+		statusCode = http.StatusForbidden
+	case strings.Contains(err.Error(), "SQLSTATE 23403"):
+		customErr = errors.New("foreign key violation")
+		statusCode = http.StatusForbidden
+	default:
+		customErr = err
+	}
+
 	var payload jsonResponse
 	payload.Error = true
-	payload.Message = err.Error()
+	payload.Message = customErr.Error()
 
 	app.writeJSON(w, statusCode, payload)
 }
