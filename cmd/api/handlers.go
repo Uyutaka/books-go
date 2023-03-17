@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/uyutaka/books-go/internal/data"
 )
 
@@ -149,7 +151,7 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 			app.errorJSON(w, err)
 			return
 		}
-		
+
 		// if password != string, update password
 		if user.Password != "" {
 			err := u.ResetPassword(user.Password)
@@ -165,4 +167,20 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 		Message: "Changes saved",
 	}
 	_ = app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	user, err := app.models.User.GetOne(userID)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	_ = app.writeJSON(w, http.StatusOK, user)
 }
