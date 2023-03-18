@@ -131,12 +131,13 @@ func (u *User) Update() error {
 	defer cancel()
 
 	stmt := `update users set
-				email = $1,
-				first_name = $2,
-				last_name = $3,
-				user_active = $4,
-				updated_at = $5,
-				where id = $6`
+		email = $1,
+		first_name = $2,
+		last_name = $3,
+		user_active = $4,
+		updated_at = $5
+		where id = $6
+	`
 
 	_, err := db.ExecContext(ctx, stmt,
 		u.Email,
@@ -144,7 +145,8 @@ func (u *User) Update() error {
 		u.LastName,
 		u.Active,
 		time.Now(),
-		u.ID)
+		u.ID,
+	)
 
 	if err != nil {
 		return err
@@ -415,6 +417,19 @@ func (t *Token) DeleteByToken(plainText string) error {
 	_, err := db.ExecContext(ctx, stmt, plainText)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (t *Token) DeleteTokensForUser(id int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	stmt := "delete from tokens where user_id = $1"
+	_, err := db.ExecContext(ctx, stmt, id)
+	if err != nil {
+		return nil
 	}
 
 	return nil
