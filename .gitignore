@@ -3,4 +3,5 @@ db-data/postgres
 vueapi
 migrations/
 cmd/api/__debug_bin
-
+*.html
+*.out
