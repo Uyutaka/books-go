@@ -1,23 +1,31 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
+	"vue-api/internal/data"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/uyutaka/books-go/internal/data"
+	"github.com/mozillazg/go-slugify"
 )
 
+var staticPath = "./static/"
+
+// jsonResponse is the type used for generic JSON responses
 type jsonResponse struct {
-	Error   bool   `json:"error"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	Error   bool        `json:"error"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
-type envelope map[string]any
+type envelope map[string]interface{}
 
+// Login is the handler used to attempt to log a user into the api
 func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 	type credentials struct {
 		UserName string `json:"email"`
@@ -34,9 +42,6 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		payload.Message = "invalid json supplied, or json missing entirely"
 		_ = app.writeJSON(w, http.StatusBadRequest, payload)
 	}
-
-	// TODO authenticate
-	app.infoLog.Println(creds.UserName, creds.Password)
 
 	// look up the user by email
 	user, err := app.models.User.GetByEmail(creds.UserName)
@@ -110,6 +115,9 @@ func (app *application) Logout(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, payload)
 }
 
+// AllUsers is the handler which lists all users. Note that this
+// handler should be protected in the routes file, and require that
+// the user have a valid token
 func (app *application) AllUsers(w http.ResponseWriter, r *http.Request) {
 	var users data.User
 	all, err := users.GetAll()
@@ -127,6 +135,7 @@ func (app *application) AllUsers(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, payload)
 }
 
+// EditUser saves a new user, or updates a user, in the database
 func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 	var user data.User
 	err := app.readJSON(w, r, &user)
@@ -173,9 +182,11 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 		Error:   false,
 		Message: "Changes saved",
 	}
+
 	_ = app.writeJSON(w, http.StatusAccepted, payload)
 }
 
+// GetUser returns one user as JSON
 func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
@@ -192,6 +203,7 @@ func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, user)
 }
 
+// DeleteUser delets a user from the users table by the id given in the supplied JSON file
 func (app *application) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	var requestPayload struct {
 		ID int `json:"id"`
@@ -217,6 +229,9 @@ func (app *application) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, payload)
 }
 
+// LogUserOutAndSetInactive sets the user specified by the id value in the supplied JSON
+// to inactive, and deletes any tokens associated with that user id from the tokens table
+// in the database
 func (app *application) LogUserOutAndSetInactive(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
@@ -252,10 +267,13 @@ func (app *application) LogUserOutAndSetInactive(w http.ResponseWriter, r *http.
 	_ = app.writeJSON(w, http.StatusAccepted, payload)
 }
 
+// ValidateToken accepts a JSON payload with a plain text token, and returns
+// true if that token is valid, or false if it is not, as a JSON response
 func (app *application) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	var requestPayload struct {
 		Token string `json:"token"`
 	}
+
 	err := app.readJSON(w, r, &requestPayload)
 	if err != nil {
 		app.errorJSON(w, err)
@@ -273,6 +291,7 @@ func (app *application) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, payload)
 }
 
+// AllBooks returns all books as JSON
 func (app *application) AllBooks(w http.ResponseWriter, r *http.Request) {
 	books, err := app.models.Book.GetAll()
 	if err != nil {
@@ -285,9 +304,11 @@ func (app *application) AllBooks(w http.ResponseWriter, r *http.Request) {
 		Message: "success",
 		Data:    envelope{"books": books},
 	}
+
 	app.writeJSON(w, http.StatusOK, payload)
 }
 
+// OneBook returns one books as JSON, by slug
 func (app *application) OneBook(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
@@ -305,6 +326,7 @@ func (app *application) OneBook(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, payload)
 }
 
+// AuthorsAll returns a list of all authors consisting of author id and author name, as JSON
 func (app *application) AuthorsAll(w http.ResponseWriter, r *http.Request) {
 	all, err := app.models.Author.All()
 	if err != nil {
@@ -324,6 +346,7 @@ func (app *application) AuthorsAll(w http.ResponseWriter, r *http.Request) {
 			Value: x.ID,
 			Text:  x.AuthorName,
 		}
+
 		results = append(results, author)
 	}
 
@@ -333,4 +356,70 @@ func (app *application) AuthorsAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.writeJSON(w, http.StatusOK, payload)
+}
+
+func (app *application) EditBook(w http.ResponseWriter, r *http.Request) {
+	var requestPayload struct {
+		ID              int    `json:"id"`
+		Title           string `json:"title"`
+		AuthorID        int    `json:"author_id"`
+		PublicationYear int    `json:"publication_year"`
+		Description     string `json:"description"`
+		CoverBase64     string `json:"cover"`
+		GenreIDs        []int  `json:"genre_ids"`
+	}
+
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	book := data.Book{
+		ID:              requestPayload.ID,
+		Title:           requestPayload.Title,
+		AuthorID:        requestPayload.AuthorID,
+		PublicationYear: requestPayload.PublicationYear,
+		Description:     requestPayload.Description,
+		Slug:            slugify.Slugify(requestPayload.Title),
+		GenreIDs:        requestPayload.GenreIDs,
+	}
+
+	if len(requestPayload.CoverBase64) > 0 {
+		// we have a cover
+		decoded, err := base64.StdEncoding.DecodeString(requestPayload.CoverBase64)
+		if err != nil {
+			app.errorJSON(w, err)
+			return
+		}
+
+		// write image to /static/covers
+		if err := os.WriteFile(fmt.Sprintf("%s/covers/%s.jpg", staticPath, book.Slug), decoded, 0666); err != nil {
+			app.errorJSON(w, err)
+			return
+		}
+
+		if book.ID == 0 {
+			// adding a book
+			_, err := app.models.Book.Insert(book)
+			if err != nil {
+				app.errorJSON(w, err)
+				return
+			}
+		} else {
+			// updating a book
+			err := book.Update()
+			if err != nil {
+				app.errorJSON(w, err)
+				return
+			}
+		}
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Changes saved",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, payload)
 }
