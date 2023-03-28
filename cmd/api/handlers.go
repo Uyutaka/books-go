@@ -398,21 +398,21 @@ func (app *application) EditBook(w http.ResponseWriter, r *http.Request) {
 			app.errorJSON(w, err)
 			return
 		}
+	}
 
-		if book.ID == 0 {
-			// adding a book
-			_, err := app.models.Book.Insert(book)
-			if err != nil {
-				app.errorJSON(w, err)
-				return
-			}
-		} else {
-			// updating a book
-			err := book.Update()
-			if err != nil {
-				app.errorJSON(w, err)
-				return
-			}
+	if book.ID == 0 {
+		// adding a book
+		_, err := app.models.Book.Insert(book)
+		if err != nil {
+			app.errorJSON(w, err)
+			return
+		}
+	} else {
+		// updating a book
+		err := book.Update()
+		if err != nil {
+			app.errorJSON(w, err)
+			return
 		}
 	}
 
@@ -422,4 +422,51 @@ func (app *application) EditBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *application) BookByID(w http.ResponseWriter, r *http.Request) {
+	bookID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	book, err := app.models.Book.GetOneById(bookID)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	payload := jsonResponse{
+		Error: false,
+		Data:  book,
+	}
+
+	app.writeJSON(w, http.StatusOK, payload)
+}
+
+func (app *application) DeleteBook(w http.ResponseWriter, r *http.Request) {
+	var requestPayload struct {
+		ID int `json:"id"`
+	}
+
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	err = app.models.Book.DeleteByID(requestPayload.ID)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Book deleted",
+	}
+
+	app.writeJSON(w, http.StatusOK, payload)
+
 }
