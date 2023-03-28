@@ -8,10 +8,10 @@ import (
 	"os"
 	"strconv"
 	"time"
-	"vue-api/internal/data"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mozillazg/go-slugify"
+	"github.com/uyutaka/books-go/internal/data"
 )
 
 var staticPath = "./static/"
